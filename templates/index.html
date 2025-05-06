@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barber Booking System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Barber Booking System</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="{{ category }}">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <h2>Book an Appointment</h2>
+        <form method="POST" action="{{ url_for('book') }}">
+            <label for="barber_id">Select Barber:</label>
+            <select id="barber_id" name="barber_id" required onchange="fetchSlots()">
+                <option value="">Choose a barber</option>
+                {% for barber in barbers %}
+                    <option value="{{ barber.id }}">{{ barber.name }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="date">Select Date:</label>
+            <input type="date" id="date" name="date" required onchange="fetchSlots()">
+
+            <label for="time">Select Time:</label>
+            <select id="time" name="time" required>
+                <option value="">Choose a time</option>
+            </select>
+
+            <label for="client_name">Your Name:</label>
+            <input type="text" id="client_name" name="client_name" required>
+
+            <label for="client_email">Your Email:</label>
+            <input type="email" id="client_email" name="client_email" required>
+
+            <button type="submit">Book Now</button>
+        </form>
+        <p><a href="{{ url_for('dashboard') }}">View Barber Dashboard</a></p>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
