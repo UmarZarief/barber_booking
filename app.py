@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
 import logging
+import re
 from sqlalchemy.exc import OperationalError
 
 # Configure logging
@@ -109,8 +110,19 @@ def book():
         barber_id = request.form['barber']
         date = request.form['date']
         time = request.form['time']
-        client_name = request.form['client_name']
-        client_email = request.form['client_email']
+        client_name = request.form['client_name'].strip()
+        client_email = request.form['client_email'].strip()
+        
+        # Validate inputs
+        if not client_name:
+            flash('Client name cannot be empty.', 'error')
+            return redirect(url_for('index'))
+        
+        # Email validation with regex
+        email_pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+        if not re.match(email_pattern, client_email):
+            flash('Invalid email address.', 'error')
+            return redirect(url_for('index'))
         
         today = datetime.now().strftime('%Y-%m-%d')
         if date < today:
