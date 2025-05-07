@@ -15,10 +15,12 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///barber.db'
+# Use absolute path for the database URI
+base_dir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(base_dir, "barber.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)  # Initialize Flask-Migrate
+migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -28,7 +30,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)  # Column to be added via migration
+    is_admin = db.Column(db.Boolean, default=False)
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -61,11 +63,11 @@ class Booking(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Initialize database and apply migrations
+# Initialize database
 def initialize_database():
     try:
         logger.info("Attempting to initialize database")
-        db_path = os.path.join(os.getcwd(), 'barber.db')
+        db_path = os.path.join(base_dir, 'barber.db')
         if not os.path.exists(db_path):
             logger.info(f"Database file {db_path} does not exist, creating it")
             open(db_path, 'a').close()
@@ -73,22 +75,34 @@ def initialize_database():
         
         with app.app_context():
             logger.info("Creating database tables")
-            db.create_all()  # Still useful for initial creation
+            db.create_all()
             logger.info("Database tables created successfully")
-            
-            # Add initial admin user after migrations
-            if not User.query.filter_by(username='admin').first():
-                logger.info("No admin user found, adding admin")
-                admin = User(username='admin', is_admin=True)
-                admin.set_password('admin123')
-                db.session.add(admin)
-                db.session.commit()
-                logger.info("Admin user added successfully")
     except OperationalError as e:
         logger.error(f"Database initialization failed: {e}")
         raise
     except Exception as e:
         logger.error(f"Unexpected error during database initialization: {e}")
+        raise
+
+# Ensure admin user exists
+def ensure_admin_user():
+    try:
+        with app.app_context():
+            admin_user = User.query.filter_by(username='admin').first()
+            if not admin_user:
+                logger.info("No admin user found, adding admin")
+                admin = User(username='admin', is_admin=True)
+                admin.set_password('admin123')
+                db.session.add(admin)
+                db.session.commit()
+                logger.info("Admin user added successfully with password hash: %s", admin.password_hash)
+            else:
+                logger.info("Admin user already exists with username: %s", admin_user.username)
+                # Verify password (for debugging)
+                if not admin_user.check_password('admin123'):
+                    logger.warning("Admin password mismatch detected")
+    except OperationalError as e:
+        logger.error(f"Error ensuring admin user: {e}")
         raise
 
 # Routes
@@ -202,7 +216,7 @@ def register():
             user.set_password(password)
             db.session.add(user)
             db.session.commit()
-            barber = Barber(name=username, user_id=user.id)  # Use username as barber name for simplicity
+            barber = Barber(name=username, user_id=user.id)
             db.session.add(barber)
             db.session.commit()
             flash('Registration successful! Please log in.', 'success')
@@ -229,7 +243,6 @@ def dashboard():
 def cancel(booking_id):
     try:
         booking = Booking.query.get_or_404(booking_id)
-        # Ensure the booking belongs to the logged-in barber
         barber = Barber.query.filter_by(user_id=current_user.id).first()
         if booking.barber_id != barber.id:
             flash('Unauthorized action.', 'error')
@@ -250,4 +263,5 @@ def logout():
 
 if __name__ == '__main__':
     initialize_database()
+    ensure_admin_user()
     app.run(debug=True)
