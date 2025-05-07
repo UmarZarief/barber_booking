@@ -41,3 +41,11 @@ button:hover {
 .error {
     color: red;
 }
+form button {
+    background-color: #dc3545;
+    margin-left: 10px;
+    padding: 5px 10px;
+}
+form button:hover {
+    background-color: #c82333;
+}

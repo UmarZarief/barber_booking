@@ -179,6 +179,24 @@ def dashboard():
         flash('Database error. Please try again later.', 'error')
         return render_template('dashboard.html', bookings=[], username=current_user.username)
 
+@app.route('/cancel/<int:booking_id>', methods=['POST'])
+@login_required
+def cancel(booking_id):
+    try:
+        booking = Booking.query.get_or_404(booking_id)
+        # Ensure the booking belongs to the logged-in barber
+        barber = Barber.query.filter_by(user_id=current_user.id).first()
+        if booking.barber_id != barber.id:
+            flash('Unauthorized action.', 'error')
+            return redirect(url_for('dashboard'))
+        booking.status = 'Cancelled'
+        db.session.commit()
+        flash('Booking cancelled successfully!', 'success')
+    except OperationalError as e:
+        logger.error(f"Error cancelling booking: {e}")
+        flash('Database error. Please try again later.', 'error')
+    return redirect(url_for('dashboard'))
+
 @app.route('/logout')
 @login_required
 def logout():
