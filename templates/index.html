@@ -5,19 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Barber Booking</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
 </head>
 <body>
     <nav>
         <a href="{{ url_for('index') }}">Home</a>
-        {% if current_user.is_authenticated %}
-            <a href="{{ url_for('dashboard') }}">Dashboard</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
-        {% else %}
-            <a href="{{ url_for('login') }}">Login</a>
-        {% endif %}
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('register') }}">Register</a>
     </nav>
-    <h1>Book a Barber Appointment</h1>
+    <h1>Book a Haircut</h1>
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -25,24 +20,23 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
-    <form id="booking-form" method="POST" action="{{ url_for('book') }}">
+    <form method="POST" action="{{ url_for('book') }}" id="bookingForm">
         <label for="barber">Barber:</label>
         <select id="barber" name="barber" required>
             {% for barber in barbers %}
                 <option value="{{ barber.id }}">{{ barber.name }}</option>
             {% endfor %}
-        </select><br>
+        </select>
         <label for="date">Date:</label>
-        <input type="date" id="date" name="date" required><br>
+        <input type="date" id="date" name="date" required>
         <label for="time">Time:</label>
-        <select id="time" name="time" required>
-            <option value="">Select a time</option>
-        </select><br>
-        <label for="client_name">Name:</label>
-        <input type="text" id="client_name" name="client_name" required><br>
-        <label for="client_email">Email:</label>
-        <input type="email" id="client_email" name="client_email" required><br>
-        <button type="submit">Book</button>
+        <select id="time" name="time" required></select>
+        <label for="client_name">Your Name:</label>
+        <input type="text" id="client_name" name="client_name" required>
+        <label for="client_email">Your Email:</label>
+        <input type="email" id="client_email" name="client_email" required>
+        <button type="submit">Book Now</button>
     </form>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
