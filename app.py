@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
@@ -17,6 +18,7 @@ app.config['SECRET_KEY'] = 'your-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///barber.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)  # Initialize Flask-Migrate
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -26,6 +28,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)  # Column to be added via migration
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -58,7 +61,7 @@ class Booking(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Initialize database at startup
+# Initialize database and apply migrations
 def initialize_database():
     try:
         logger.info("Attempting to initialize database")
@@ -70,28 +73,23 @@ def initialize_database():
         
         with app.app_context():
             logger.info("Creating database tables")
-            db.create_all()
+            db.create_all()  # Still useful for initial creation
             logger.info("Database tables created successfully")
             
-            if not User.query.first():
-                logger.info("No users found, adding test data")
-                user = User(username='barber1')
-                user.set_password('password123')
-                db.session.add(user)
+            # Add initial admin user after migrations
+            if not User.query.filter_by(username='admin').first():
+                logger.info("No admin user found, adding admin")
+                admin = User(username='admin', is_admin=True)
+                admin.set_password('admin123')
+                db.session.add(admin)
                 db.session.commit()
-                barber = Barber(name='John', user_id=user.id)
-                db.session.add(barber)
-                db.session.commit()
-                logger.info("Test user and barber added successfully")
+                logger.info("Admin user added successfully")
     except OperationalError as e:
         logger.error(f"Database initialization failed: {e}")
         raise
     except Exception as e:
         logger.error(f"Unexpected error during database initialization: {e}")
         raise
-
-# Run database initialization at startup
-initialize_database()
 
 # Routes
 @app.route('/')
@@ -180,6 +178,41 @@ def login():
         flash('Database error. Please try again later.', 'error')
         return render_template('login.html')
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    try:
+        if request.method == 'POST':
+            username = request.form['username'].strip()
+            password = request.form['password'].strip()
+            confirm_password = request.form['confirm_password'].strip()
+
+            # Validate inputs
+            if not username or not password or not confirm_password:
+                flash('All fields are required.', 'error')
+                return redirect(url_for('register'))
+            if password != confirm_password:
+                flash('Passwords do not match.', 'error')
+                return redirect(url_for('register'))
+            if User.query.filter_by(username=username).first():
+                flash('Username already exists.', 'error')
+                return redirect(url_for('register'))
+
+            # Create new user and barber
+            user = User(username=username)
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            barber = Barber(name=username, user_id=user.id)  # Use username as barber name for simplicity
+            db.session.add(barber)
+            db.session.commit()
+            flash('Registration successful! Please log in.', 'success')
+            return redirect(url_for('login'))
+        return render_template('register.html')
+    except OperationalError as e:
+        logger.error(f"Error during registration: {e}")
+        flash('Database error. Please try again later.', 'error')
+        return render_template('register.html')
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -216,4 +249,5 @@ def logout():
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
+    initialize_database()
     app.run(debug=True)
